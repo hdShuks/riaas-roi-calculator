@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RiaaS Road Survey Calculator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: two-column worksheet. Inputs left like a field form, results right as a road-sign style readout; stacks on phones. */
+:root{
+  --bg:#F2F4F5;          /* asphalt-tinted paper */
+  --panel:#FFFFFF;
+  --fg:#1B2126;
+  --muted:#5B6670;
+  --line:#D5DBDF;
+  --sign:#006B4E;        /* US guide-sign green */
+  --sign-fg:#FFFFFF;
+  --mark:#E9B300;        /* lane-marking yellow */
+  --bad:#B3261E;
+  --good:#1E7A3C;
+  --display:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171B;--panel:#1A2126;--fg:#E7ECEF;--muted:#9AA6AF;--line:#2C363D;
+  --sign:#0E8A66;--sign-fg:#FFFFFF;--mark:#F2C230;--bad:#F2867E;--good:#6FD08C;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171B;--panel:#1A2126;--fg:#E7ECEF;--muted:#9AA6AF;--line:#2C363D;
+  --sign:#0E8A66;--sign-fg:#FFFFFF;--mark:#F2C230;--bad:#F2867E;--good:#6FD08C;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:24px}
+header{display:grid;gap:8px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(26px,4vw,38px);line-height:1.1;margin:0;text-wrap:balance}
+.lede{margin:0;max-width:65ch;color:var(--muted)}
+.lane{height:6px;background:repeating-linear-gradient(90deg,var(--mark) 0 36px,transparent 36px 60px);border-radius:2px;max-width:240px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:24px;align-items:start}
+@media (max-width:820px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:18px;min-width:0}
+h2{font-size:13px;font-family:var(--mono);font-weight:600;letter-spacing:.08em;text-transform:uppercase;margin:0;color:var(--muted)}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:14px}
+.field{display:grid;gap:6px}
+.field label{font-weight:600;font-size:14px}
+.hint{font-size:12.5px;color:var(--muted)}
+input[type=number],select{font:500 16px var(--mono);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px;width:100%}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--mark);outline-offset:1px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:420px){.row2{grid-template-columns:1fr}}
+.sign{background:var(--sign);color:var(--sign-fg);border-radius:10px;padding:20px;display:grid;gap:6px;border:3px solid var(--sign);box-shadow:inset 0 0 0 2px rgba(255,255,255,.85)}
+.sign .k{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.9}
+.sign .big{font:800 clamp(30px,5vw,44px)/1.05 var(--display);font-variant-numeric:tabular-nums}
+.sign .sub{font-size:14px;opacity:.95}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cell{border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:2px}
+.cell .k{font-size:12.5px;color:var(--muted)}
+.cell .v{font:600 22px var(--mono);font-variant-numeric:tabular-nums}
+.cell.hl{border-color:var(--mark);box-shadow:inset 4px 0 0 var(--mark)}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+td{padding:8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+td:last-child{text-align:right;font-family:var(--mono);white-space:nowrap;padding-left:12px}
+tr.total td{font-weight:700;border-bottom:0;padding-top:12px}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+.note{font-size:13px;color:var(--muted);max-width:65ch;margin:0}
+.bar{display:grid;gap:6px}
+.bar .track{height:12px;background:var(--bg);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.bar .fill{height:100%;background:var(--sign)}
+.bar .fill.alt{background:var(--muted)}
+.bar .lbl{display:flex;justify-content:space-between;font-size:13px;gap:8px}
+.bar .lbl span:last-child{font-family:var(--mono)}
+footer{font-size:12.5px;color:var(--muted);display:grid;gap:4px;max-width:80ch}
+@media (prefers-reduced-motion:no-preference){.bar .fill{transition:width .3s ease}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Dareesoft RiaaS · County &amp; city estimate</div>
+    <h1>How often could you see every road, and what would it cost?</h1>
+    <p class="lede">Enter your road network and how you inspect it today. The calculator sizes a Dareesoft deployment from what was measured in Brazoria County, Texas, and compares the cost per mile inspected with a conventional survey.</p>
+    <div class="lane" aria-hidden="true"></div>
+  </header>
+
+  <div class="grid">
+    <form class="panel" id="f" autocomplete="off">
+      <h2>Your network today</h2>
+      <fieldset>
+        <div class="field">
+          <label for="miles">Road miles you maintain</label>
+          <input id="miles" type="number" min="1" step="1" value="1000">
+          <span class="hint">Centerline miles. Brazoria County scored 1,021 miles.</span>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="every">Full survey every (years)</label>
+            <input id="every" type="number" min="0.5" step="0.5" value="2.5">
+          </div>
+          <div class="field">
+            <label for="cpm">Survey cost per mile ($)</label>
+            <input id="cpm" type="number" min="0" step="1" value="50">
+          </div>
+        </div>
+        <span class="hint">National Academies benchmark: $50 per mile on average for image-based surveys, $24 to $85 range.</span>
+      </fieldset>
+
+      <h2>Complaint-driven inspections</h2>
+      <fieldset>
+        <div class="row2">
+          <div class="field">
+            <label for="calls">Defect reports checked per year</label>
+            <input id="calls" type="number" min="0" step="10" value="500">
+          </div>
+          <div class="field">
+            <label for="rate">Staff cost per hour, with vehicle ($)</label>
+            <input id="rate" type="number" min="0" step="5" value="60">
+          </div>
+        </div>
+        <span class="hint">Assumes one staff hour per report. Dareesoft's contractor customer in Alberta measured about 30% less inspection time.</span>
+      </fieldset>
+
+      <h2>With Dareesoft</h2>
+      <fieldset>
+        <div class="row2">
+          <div class="field">
+            <label for="freq">Inspections of every road</label>
+            <select id="freq">
+              <option value="4" selected>Quarterly (4 a year)</option>
+              <option value="12">Monthly (12 a year)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="plan">Price</label>
+            <select id="plan">
+              <option value="19200" selected>Pilot: $4,800 per device per quarter</option>
+              <option value="30000">Standard: $2,500 per device per month</option>
+              <option value="48000">List: $12,000 per device per quarter</option>
+            </select>
+          </div>
+        </div>
+        <span class="hint">Devices ride on your own trucks. Sizing uses Brazoria's measured coverage: about 255 road miles per device per quarter.</span>
+      </fieldset>
+    </form>
+
+    <section class="panel" aria-live="polite">
+      <div class="sign">
+        <span class="k">Cost per mile inspected with Dareesoft</span>
+        <span class="big" id="o-dcpm">$0</span>
+        <span class="sub" id="o-dcpm-sub"></span>
+      </div>
+
+      <div class="compare">
+        <div class="cell"><span class="k">Inspections of each road per year, today</span><span class="v" id="o-today">0</span></div>
+        <div class="cell hl"><span class="k">With Dareesoft</span><span class="v" id="o-with">0</span></div>
+        <div class="cell"><span class="k">Devices needed</span><span class="v" id="o-dev">0</span></div>
+        <div class="cell"><span class="k">Dareesoft cost per year</span><span class="v" id="o-cost">$0</span></div>
+      </div>
+
+      <div class="bar">
+        <div class="lbl"><span>Miles inspected per year, today</span><span id="o-mt">0</span></div>
+        <div class="track"><div class="fill alt" id="b-today" style="width:0%"></div></div>
+        <div class="lbl"><span>Miles inspected per year, with Dareesoft</span><span id="o-md">0</span></div>
+        <div class="track"><div class="fill" id="b-with" style="width:0%"></div></div>
+      </div>
+
+      <div>
+        <h2>Direct savings in year one</h2>
+        <table>
+          <tr><td>Survey spend replaced</td><td id="o-s1">$0</td></tr>
+          <tr><td>Inspection time saved on defect reports</td><td id="o-s2">$0</td></tr>
+          <tr><td>Dareesoft subscription</td><td id="o-s3">$0</td></tr>
+          <tr class="total"><td>Net, counting direct savings only</td><td id="o-net">$0</td></tr>
+        </table>
+      </div>
+      <p class="note" id="o-read"></p>
+    </section>
+  </div>
+
+  <footer>
+    <span>Screening estimate for a first conversation, not a quote. Dareesoft confirms device count and price for each network.</span>
+    <span>Measured: Brazoria County, TX scored 1,021 miles with 4 devices in one quarter (2026). Emcon Services, Alberta: 2 to 3 hours saved on a 6 to 8 hour patrol. Benchmark: National Academies pavement data collection synthesis.</span>
+    <span>Not counted: earlier, cheaper treatments when roads are caught before they drop a condition band, fewer damage claims, and crew routing. These are in the full benefit-cost model.</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var usd=function(n){var s=Math.round(Math.abs(n)).toLocaleString('en-US');return (n<0?'-$':'$')+s};
+  var num=function(n,d){return Number(n).toLocaleString('en-US',{maximumFractionDigits:d||0})};
+  var v=function(id){var x=parseFloat($(id).value);return isFinite(x)&&x>=0?x:0};
+  var MILES_PER_DEVICE_QTR=255;
+  function calc(){
+    var miles=v('miles'),every=v('every'),cpm=v('cpm'),calls=v('calls'),rate=v('rate');
+    var freq=parseFloat($('freq').value),price=parseFloat($('plan').value);
+    var today=every>0?1/every:0;
+    var devices=miles>0?Math.ceil(miles*freq/(MILES_PER_DEVICE_QTR*4)):0;
+    var cost=devices*price;
+    var milesDaree=miles*freq, milesToday=miles*today;
+    var dcpm=milesDaree>0?cost/milesDaree:0;
+    var s1=milesToday*cpm, s2=calls*1*rate*0.30, net=s1+s2-cost;
+    $('o-dcpm').textContent='$'+num(dcpm,2);
+    $('o-dcpm-sub').textContent=cpm>0?('vs $'+num(cpm,2)+' per mile for a conventional survey ('+num(dcpm/cpm*100,0)+'% of the cost)'):'';
+    $('o-today').textContent=num(today,2);
+    $('o-with').textContent=num(freq,0);
+    $('o-dev').textContent=num(devices,0);
+    $('o-cost').textContent=usd(cost);
+    $('o-mt').textContent=num(milesToday,0);
+    $('o-md').textContent=num(milesDaree,0);
+    var mx=Math.max(milesToday,milesDaree,1);
+    $('b-today').style.width=(milesToday/mx*100)+'%';
+    $('b-with').style.width=(milesDaree/mx*100)+'%';
+    $('o-s1').textContent=usd(s1);
+    $('o-s2').textContent=usd(s2);
+    $('o-s3').textContent=usd(-cost);
+    var n=$('o-net');n.textContent=usd(net);n.className=net>=0?'pos':'neg';
+    var conv=cpm>0?cost/(miles*cpm):0;
+    $('o-read').textContent=miles>0?('The same '+usd(cost)+' would buy '+num(conv,1)+' conventional surveys of your network a year. With Dareesoft it buys '+num(freq,0)+', on roads your crews already drive. '+(net<0?'Direct savings alone do not cover the subscription; the case rests on inspecting '+num(freq/Math.max(today,0.01),0)+' times as often.':'Direct savings already cover the subscription.')):'Enter your road miles to see an estimate.';
+  }
+  ['miles','every','cpm','calls','rate','freq','plan'].forEach(function(id){$(id).addEventListener('input',calc);$(id).addEventListener('change',calc)});
+  $('f').addEventListener('submit',function(e){e.preventDefault()});
+  calc();
+})();
+</script>
+</body>
+</html>
